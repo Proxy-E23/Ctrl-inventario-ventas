@@ -6,14 +6,14 @@
   (y no una copia vieja en caché).
 
   Se muestra así: "vX · a1b2c3d"
-    - vX    -> APP_VERSION.
+    - vX   -> APP_VERSION.
     - a1b2c3d -> hash corto del commit publicado. Lo escribe solo el
                  workflow de GitHub (.github/workflows/pages.yml) al
                  desplegar. Si abres la app en local o en Codespaces,
                  donde ese paso no corre, muestra "dev".
 */
 
-const APP_VERSION = "v2.2";
+const APP_VERSION = "v2.3";
 const APP_COMMIT = "__COMMIT__";
 const APP_COMMIT_VISIBLE = APP_COMMIT.indexOf("__") === 0 ? "dev" : APP_COMMIT;
 const APP_VERSION_COMPLETA = APP_VERSION + " · " + APP_COMMIT_VISIBLE;
