@@ -897,6 +897,12 @@
     }
 
     function procesarStock() {
+      return ejecutarUnaVez(_procesarStockInterno, {
+        botones: '.btn-confirmar[onclick="procesarStock()"]'
+      });
+    }
+
+    async function _procesarStockInterno() {
       if (saboresSeleccionadosStock.length === 0) {
         alert("Selecciona al menos un sabor para continuar");
         return;
@@ -944,7 +950,7 @@
       mensaje += `\n🔢 Total: ${totalUnidades} unidades\n\n¿Confirmar operación?`;
 
       if (confirm(mensaje)) {
-        ejecutarStockMasivo(fecha, horaStock, stockValido);
+        await ejecutarStockMasivo(fecha, horaStock, stockValido);
       }
     }
 
@@ -972,6 +978,7 @@
       } catch (error) {
         console.error("Error al procesar stock masivo:", error);
         alert("❌ Error al procesar el stock. Inténtalo de nuevo.");
+        return false;
       }
     }
 

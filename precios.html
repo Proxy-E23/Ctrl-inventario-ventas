@@ -272,7 +272,14 @@
       `;
     }
 
-    async function confirmarCambioPrecio(precioId) {
+    function confirmarCambioPrecio(precioId) {
+      return ejecutarUnaVez(() => _confirmarCambioPrecioInterno(precioId), {
+        botones: ".btn-confirmar-inline, .btn-borrar-inline",
+        textoOcupado: null
+      });
+    }
+
+    async function _confirmarCambioPrecioInterno(precioId) {
       try {
         const precios = await getPrecios();
         const checkbox = document.querySelector(`#fila_precio_${precioId} .checkbox-editable-precio`);
@@ -316,7 +323,14 @@
       }
     }
 
-    async function confirmarBorrarPrecio(precioId) {
+    function confirmarBorrarPrecio(precioId) {
+      return ejecutarUnaVez(() => _confirmarBorrarPrecioInterno(precioId), {
+        botones: ".btn-confirmar-inline, .btn-borrar-inline",
+        textoOcupado: null
+      });
+    }
+
+    async function _confirmarBorrarPrecioInterno(precioId) {
       const confirmacion = confirm(
         "¿Estás seguro de que quieres eliminar este precio?\n\nEsta acción no se puede deshacer."
       );
@@ -371,9 +385,14 @@
       renderizarLista();
     }
 
-    form.addEventListener("submit", async function (e) {
+    form.addEventListener("submit", function (e) {
       e.preventDefault();
-      
+      ejecutarUnaVez(_agregarPrecio, {
+        botones: "#precioForm button[type=submit]"
+      });
+    });
+
+    async function _agregarPrecio() {
       // Si hay una edición en curso, cancelarla primero
       if (filaEnEdicionPrecio) {
         cancelarEdicionPrecio();
@@ -396,7 +415,7 @@
       form.reset();
       fechaInput.valueAsDate = new Date();
       renderizarLista();
-    });
+    }
 
     async function confirmarBorrado() {
       const confirmacion = confirm(

@@ -656,6 +656,15 @@ function manejarBlurInput(input) {
     }
 
     function procesarCorreccion() {
+      // Si la corrección se aplica con éxito el modal se cierra, así que
+      // el candado se queda puesto: no se puede aplicar dos veces.
+      return ejecutarUnaVez(_procesarCorreccionInterno, {
+        botones: '.btn-confirmar[onclick="procesarCorreccion()"]',
+        mantenerBloqueadoSiExito: true
+      });
+    }
+
+    async function _procesarCorreccionInterno() {
       const tipoSeleccionadoInput = document.querySelector('input[name="tipoCorreccion"]:checked');
       const inputEntrada = document.getElementById('inputEntrada');
       const cantidad = parseInt(inputEntrada?.value) || 0;
@@ -724,8 +733,9 @@ function manejarBlurInput(input) {
       mensaje += `¿Confirmar corrección?`;
 
       if (confirm(mensaje)) {
-        ejecutarCorreccion(tipoSeleccionadoInput.value, cantidad, stockNuevo, diferencia, motivo);
+        return await ejecutarCorreccion(tipoSeleccionadoInput.value, cantidad, stockNuevo, diferencia, motivo);
       }
+      return false;
     }
 
     function obtenerTextoMotivo(valor) {
@@ -789,10 +799,12 @@ function manejarBlurInput(input) {
 
         // Cerrar modal y regresar a inventario
         cerrarModal();
+        return true;
 
       } catch (error) {
         console.error("Error al ejecutar corrección:", error);
         alert("❌ Error al procesar la corrección. Inténtalo de nuevo.");
+        return false;
       }
     }
 

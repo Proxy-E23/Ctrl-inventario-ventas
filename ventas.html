@@ -743,7 +743,13 @@
       }
     }
 
-    async function procesarVentas() {
+    function procesarVentas() {
+      return ejecutarUnaVez(_procesarVentasInterno, {
+        botones: "#modalConfirmacionVentas .btn-confirmar"
+      });
+    }
+
+    async function _procesarVentasInterno() {
       try {
         const sabores = await getSabores();
         const inputs = document.querySelectorAll('.input-cantidad');
@@ -760,6 +766,9 @@
             itemsVendidos.push({ id: saborId, sabor: sabor.nombre, cantidad });
           }
         });
+
+        // Sin cantidades no hay nada que registrar (evita ventas vacías)
+        if (itemsVendidos.length === 0) return false;
 
         const ventaCompleta = await registrarVenta(itemsVendidos, fechaVenta, horaVenta, precioActual);
 
@@ -778,53 +787,94 @@
       } catch (error) {
         console.error("Error al procesar ventas:", error);
         alert("Error al procesar la venta. Inténtalo de nuevo.");
+        return false;
       }
     }
 
+    // Ventas que se están mostrando en el historial (se leen UNA sola vez
+    // al abrir y se reutilizan al cambiar de día).
+    let ventasEnHistorial = [];
+    let cargandoHistorialVentas = false;
+
+    function _escaparHTML(texto) {
+      return String(texto).replace(/[&<>"']/g, c => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+      ));
+    }
+
+    // Firebase puede devolver arrays como objetos (si faltan índices) y
+    // algunas ventas pueden venir incompletas. Aquí se deja todo en la
+    // forma que espera el resto del código, sin romper por un dato raro.
+    function _normalizarVentas(datos) {
+      const lista = Array.isArray(datos) ? datos : Object.values(datos || {});
+      return lista
+        .filter(v => v && typeof v.fecha === "string" && v.fecha)
+        .map(v => ({
+          ...v,
+          items: Array.isArray(v.items) ? v.items : Object.values(v.items || {}),
+          montoTotal: v.montoTotal === null || v.montoTotal === undefined
+            ? v.montoTotal
+            : Number(v.montoTotal)
+        }));
+    }
+
     async function mostrarHistorialVentas() {
+      const modal = document.getElementById("modalHistorialVentas");
+      const lista = document.getElementById("listaHistorialVentas");
+
+      // Abrir el modal DE INMEDIATO con un indicador de carga, en vez de
+      // dejar la pantalla sin respuesta hasta que termine la descarga.
+      lista.innerHTML = '<p class="no-sabores">⏳ Cargando historial...</p>';
+      modal.classList.remove("oculto");
+
+      // Si ya hay una carga en curso (toques repetidos), no lanzar otra.
+      if (cargandoHistorialVentas) return;
+      cargandoHistorialVentas = true;
+
+      const avisoLento = setTimeout(() => {
+        lista.innerHTML =
+          '<p class="no-sabores">⏳ Sigue cargando...<br><small>Revisa tu conexión; en cuanto responda se mostrará solo.</small></p>';
+      }, 8000);
+
       try {
-        const ventasHistorial = await getVentas();
-        
-        if (ventasHistorial.length === 0) {
-          document.getElementById("listaHistorialVentas").innerHTML = '<p class="no-sabores">No hay ventas registradas</p>';
-          document.getElementById("modalHistorialVentas").classList.remove("oculto");
-          
-          setTimeout(() => {
-            const modal = document.getElementById("modalHistorialVentas");
-            const modalContent = modal.querySelector(".modal-content");
-            modalContent.scrollTop = 0;
-          }, 100);
-          
+        ventasEnHistorial = _normalizarVentas(await getVentas());
+
+        if (ventasEnHistorial.length === 0) {
+          lista.innerHTML = '<p class="no-sabores">No hay ventas registradas</p>';
           return;
         }
-        
-        // Obtener días únicos con ventas y ordenarlos
-        diasConVentas = [...new Set(ventasHistorial.map(venta => venta.fecha))];
-        diasConVentas.sort((a, b) => new Date(b) - new Date(a));
-        
-        // Si no hay fecha actual o ya no existe, usar la más reciente
+
+        // Días únicos con ventas, del más reciente al más antiguo
+        // (las fechas son AAAA-MM-DD, se ordenan bien como texto)
+        diasConVentas = [...new Set(ventasEnHistorial.map(venta => venta.fecha))];
+        diasConVentas.sort((a, b) => b.localeCompare(a));
+
         if (!fechaHistorialVentasActual || !diasConVentas.includes(fechaHistorialVentasActual)) {
           fechaHistorialVentasActual = diasConVentas[0];
         }
-        
+
         await cargarVentasDelDia(fechaHistorialVentasActual);
-        document.getElementById("modalHistorialVentas").classList.remove("oculto");
-        
+
         setTimeout(() => {
-          const modal = document.getElementById("modalHistorialVentas");
           const modalContent = modal.querySelector(".modal-content");
-          modalContent.scrollTop = 0;
+          if (modalContent) modalContent.scrollTop = 0;
         }, 100);
-        
+
       } catch (error) {
         console.error("Error al mostrar historial de ventas:", error);
-        document.getElementById("listaHistorialVentas").innerHTML = '<p class="no-sabores">Error al cargar el historial</p>';
-        document.getElementById("modalHistorialVentas").classList.remove("oculto");
+        lista.innerHTML =
+          '<p class="no-sabores">Error al cargar el historial' +
+          '<br><small>' + _escaparHTML((error && error.message) || error) + '</small></p>' +
+          '<div style="text-align:center;margin-top:1rem;">' +
+          '<button type="button" class="btn-confirmar" onclick="mostrarHistorialVentas()">🔄 Reintentar</button></div>';
+      } finally {
+        clearTimeout(avisoLento);
+        cargandoHistorialVentas = false;
       }
     }
 
     async function cargarVentasDelDia(fecha) {
-      const ventasHistorial = await getVentas();
+      const ventasHistorial = ventasEnHistorial;
       const listaHistorial = document.getElementById("listaHistorialVentas");
       
       // Filtrar ventas del día específico
@@ -1031,6 +1081,13 @@
       cargarPrecioActual();
       inicializarFecha();
       cargarSaboresVentas();
+
+      // Precargar las ventas en segundo plano: así, cuando se abra el
+      // historial, los datos ya están en memoria y no hay que esperar
+      // la descarga desde Firebase.
+      getVentas().catch(function (error) {
+        console.warn("No se pudo precargar el historial de ventas:", error);
+      });
     });
   </script>
   <script>

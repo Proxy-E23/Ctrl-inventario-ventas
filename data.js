@@ -63,6 +63,15 @@ const CLAVES = {
 //     silencio -- si algo cambió, la pantalla se refresca sola.
 const _cache = {};
 const _listenersActivos = {};
+
+// Copia profunda: las funciones get*() devuelven una copia, no el objeto
+// de la caché. Así, si una operación modifica los datos y luego falla (o
+// se repite), la caché no queda alterada con cambios que nunca se guardaron.
+function _clonar(valor) {
+  return valor === null || valor === undefined
+    ? valor
+    : JSON.parse(JSON.stringify(valor));
+}
 const PREFIJO_CACHE_LOCAL = "cache_firebase_";
 
 function _leerCacheLocal(clave) {
@@ -120,7 +129,7 @@ async function _leer(clave, porDefecto) {
       }
     }
     const valor = _cache[clave];
-    return valor === null || valor === undefined ? porDefecto : valor;
+    return valor === null || valor === undefined ? porDefecto : _clonar(valor);
   } catch (error) {
     console.error(`data.js: no se pudo leer "${clave}" de Firebase`, error);
     // Si Firebase falla (sin internet, por ejemplo) pero hay copia
@@ -132,6 +141,7 @@ async function _leer(clave, porDefecto) {
 
 async function _guardar(clave, valor) {
   await db.ref(clave).set(valor);
+  valor = _clonar(valor);
   // Actualizamos memoria y disco de inmediato (no esperamos al
   // listener): así, si algo lee esta misma clave justo después de
   // guardar en esta misma página, ve el dato recién escrito.
@@ -144,6 +154,92 @@ async function _borrar(clave) {
   await db.ref(clave).remove();
   _cache[clave] = null;
   _asegurarListener(clave);
+}
+
+// ======================================================================
+// PROTECCIÓN CONTRA ENVÍOS DUPLICADOS
+// Si la red va lenta o el botón se pulsa dos (o más) veces seguidas, la
+// misma operación podía ejecutarse varias veces y duplicar ventas,
+// stock o registros. ejecutarUnaVez() lo evita con un único "candado"
+// por página: mientras una operación de escritura sigue en curso, las
+// demás (incluida la misma repetida) se ignoran. Además deshabilita los
+// botones indicados y avisa si el servidor tarda en responder.
+//
+// fn: función (normalmente async) con toda la operación, incluyendo
+//     validaciones, confirm() y el cierre del modal.
+// opciones:
+//   botones: selector CSS de los botones a deshabilitar mientras dura.
+//   textoOcupado: texto temporal del botón (null = no cambiar el texto).
+//   mantenerBloqueadoSiExito: si fn termina sin devolver false, el
+//     candado NO se libera (para modales que se cierran al terminar).
+// Si fn lanza error o devuelve false, el candado se libera para poder
+// reintentar (en ese caso la operación no se completó).
+// ======================================================================
+
+let _escrituraEnCurso = false;
+const SEGUNDOS_AVISO_LENTO = 6;
+
+function _mostrarAvisoLento() {
+  if (document.getElementById("avisoOperacionLenta")) return;
+  const aviso = document.createElement("div");
+  aviso.id = "avisoOperacionLenta";
+  aviso.textContent =
+    "⏳ El servidor tarda en responder. Tu operación se enviará sola en cuanto haya conexión. No la repitas.";
+  aviso.style.cssText =
+    "position:fixed;left:50%;bottom:20px;transform:translateX(-50%);" +
+    "max-width:90%;background:#333;color:#fff;padding:0.8rem 1.2rem;" +
+    "border-radius:8px;font-size:0.9rem;z-index:99999;text-align:center;" +
+    "box-shadow:0 2px 10px rgba(0,0,0,0.3);";
+  document.body.appendChild(aviso);
+}
+
+function _ocultarAvisoLento() {
+  const aviso = document.getElementById("avisoOperacionLenta");
+  if (aviso) aviso.remove();
+}
+
+async function ejecutarUnaVez(fn, opciones = {}) {
+  if (_escrituraEnCurso) {
+    console.warn("data.js: operación ignorada, ya hay otra en curso");
+    return undefined;
+  }
+  _escrituraEnCurso = true;
+
+  const textoOcupado =
+    opciones.textoOcupado === undefined ? "Guardando..." : opciones.textoOcupado;
+  const botones = opciones.botones
+    ? Array.from(document.querySelectorAll(opciones.botones))
+    : [];
+  const estadoPrevio = botones.map((b) => ({
+    boton: b,
+    texto: b.textContent,
+    deshabilitado: b.disabled,
+  }));
+  botones.forEach((b) => {
+    b.disabled = true;
+    if (textoOcupado !== null) b.textContent = textoOcupado;
+  });
+
+  const temporizador = setTimeout(_mostrarAvisoLento, SEGUNDOS_AVISO_LENTO * 1000);
+  let liberar = true;
+
+  try {
+    const resultado = await fn();
+    if (opciones.mantenerBloqueadoSiExito && resultado !== false) {
+      liberar = false;
+    }
+    return resultado;
+  } finally {
+    clearTimeout(temporizador);
+    _ocultarAvisoLento();
+    if (liberar) {
+      estadoPrevio.forEach(({ boton, texto, deshabilitado }) => {
+        boton.disabled = deshabilitado;
+        if (textoOcupado !== null) boton.textContent = texto;
+      });
+      _escrituraEnCurso = false;
+    }
+  }
 }
 
 // ======================================================================
@@ -293,6 +389,9 @@ async function borrarVentas() {
  * itemsVendidos: [{ id, sabor, cantidad }]
  */
 async function registrarVenta(itemsVendidos, fecha, hora, precioUnitario) {
+  if (!itemsVendidos || itemsVendidos.length === 0) {
+    throw new Error("registrarVenta: no hay items que vender");
+  }
   const inventario = await getInventario();
   const ventas = await getVentas();
 

@@ -271,7 +271,14 @@
       }, 300); // Esperar un poco para que aparezca el teclado
     }
 
-    async function guardarEdicion(saborId) {
+    function guardarEdicion(saborId) {
+      return ejecutarUnaVez(() => _guardarEdicionInterno(saborId), {
+        botones: ".btn-guardar-inline",
+        textoOcupado: null
+      });
+    }
+
+    async function _guardarEdicionInterno(saborId) {
       const nuevoNombre = document.getElementById(`input_${saborId}`).value.trim();
       const checkbox = document.querySelector(`#fila_${saborId} .checkbox-editable`);
       const nuevoDisponible = checkbox.checked;
@@ -350,9 +357,14 @@
       renderizarLista();
     }
 
-    form.addEventListener("submit", async function (e) {
+    form.addEventListener("submit", function (e) {
       e.preventDefault();
-      
+      ejecutarUnaVez(_agregarSabor, {
+        botones: "#saborForm button[type=submit]"
+      });
+    });
+
+    async function _agregarSabor() {
       // Si hay una edición en curso, cancelarla primero
       if (filaEnEdicion) {
         cancelarEdicion();
@@ -375,7 +387,7 @@
       form.reset();
       fechaInput.valueAsDate = new Date();
       renderizarLista();
-    });
+    }
 
     async function confirmarBorrado() {
       const confirmacion = confirm(
