@@ -13,17 +13,19 @@
                  donde ese paso no corre, muestra "dev".
 */
 
-const APP_VERSION = "v2.3";
+const APP_VERSION = "v2.3.1";
 const APP_COMMIT = "__COMMIT__";
 const APP_COMMIT_VISIBLE = APP_COMMIT.indexOf("__") === 0 ? "dev" : APP_COMMIT;
-const APP_VERSION_COMPLETA = APP_VERSION + " · " + APP_COMMIT_VISIBLE;
-
+const ES_BETA = window.location.pathname.indexOf("/beta/") !== -1;
+const APP_VERSION_COMPLETA =
+  APP_VERSION + " · " + APP_COMMIT_VISIBLE + (ES_BETA ? " · BETA" : "");
+ 
 (function () {
   console.log("Control Hielitos " + APP_VERSION_COMPLETA);
-
+ 
   // Dentro de un iframe (modales de movimientos / editar stock) no se muestra
   if (window.self !== window.top) return;
-
+ 
   function mostrarVersion() {
     if (document.getElementById("versionApp")) return;
     const etiqueta = document.createElement("div");
@@ -31,12 +33,16 @@ const APP_VERSION_COMPLETA = APP_VERSION + " · " + APP_COMMIT_VISIBLE;
     etiqueta.textContent = APP_VERSION_COMPLETA;
     etiqueta.style.cssText =
       "position:fixed;right:8px;bottom:calc(6px + env(safe-area-inset-bottom, 0px));" +
-      "font:11px/1 system-ui,-apple-system,sans-serif;color:#555;" +
-      "background:rgba(255,255,255,0.75);padding:3px 7px;border-radius:10px;" +
+      "font:11px/1 system-ui,-apple-system,sans-serif;" +
+      (ES_BETA
+        ? "color:#fff;background:rgba(230,126,34,0.9);font-weight:bold;"
+        : "color:#555;background:rgba(255,255,255,0.75);") +
+      "padding:3px 7px;border-radius:10px;" +
       "z-index:50;pointer-events:none;opacity:0.8;";
     document.body.appendChild(etiqueta);
   }
-
+ 
   if (document.body) mostrarVersion();
   else document.addEventListener("DOMContentLoaded", mostrarVersion);
 })();
+ 
