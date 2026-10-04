@@ -1,0 +1,67 @@
+# Publica DOS versiones del sitio en GitHub Pages:
+#   - rama main -> raíz del sitio   (uso diario)
+#   - rama beta -> carpeta /beta/   (pruebas)
+# En cada una escribe el hash del commit en version.js.
+# Ubicación en el repo: .github/workflows/pages.yml (en main Y en beta)
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main, beta]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Descargar main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+
+      - name: Descargar beta (si existe)
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: beta
+          path: beta-src
+
+      - name: Armar el sitio
+        run: |
+          set -e
+          if [ -f site/version.js ]; then
+            sed -i "s/__COMMIT__/$(git -C site rev-parse --short=7 HEAD)/" site/version.js
+          fi
+          if [ -d beta-src ]; then
+            if [ -f beta-src/version.js ]; then
+              sed -i "s/__COMMIT__/$(git -C beta-src rev-parse --short=7 HEAD)/" beta-src/version.js
+            fi
+            mkdir -p site/beta
+            cp -a beta-src/. site/beta/
+            rm -rf site/beta/.git site/beta/.github
+          fi
+          rm -rf site/.git site/.github
+          ls site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+        

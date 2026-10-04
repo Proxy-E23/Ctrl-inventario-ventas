@@ -5,115 +5,444 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#4ecdc4" />
-  <title>Control Hielitos - Acceso</title>
+  <title>Control Hielitos</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
+  <script src="version.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="data.js"></script>
   <style>
-    .login-contenedor {
-      max-width: 340px;
-      margin: 4rem auto;
-      padding: 2rem 1.5rem;
+    /* Forzar estilos para que funcionen bien */
+    .botones-menu {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1rem !important;
+    }
+    
+    .botones-menu .boton-principal {
+      width: 100% !important;
+      max-width: none !important;
+    }
+
+    /* Estilos para la sección de respaldo */
+    .seccion-respaldo {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 2px solid #4ecdc4;
+    }
+
+    .seccion-respaldo h3 {
       text-align: center;
-    }
-    .login-titulo {
-      font-size: 1.4rem;
-      margin-bottom: 0.3rem;
       color: #333;
-    }
-    .login-subtitulo {
-      color: #777;
-      margin-bottom: 1.5rem;
-      font-size: 0.95rem;
-    }
-    .login-campo {
-      text-align: left;
       margin-bottom: 1rem;
+      font-size: 1.2rem;
     }
-    .login-campo label {
-      display: block;
-      margin-bottom: 0.3rem;
-      font-size: 0.9rem;
-      color: #555;
+
+    .botones-respaldo {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
-    .login-campo input {
-      width: 100%;
-      padding: 0.7rem;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+
+    .botones-respaldo button {
+      flex: 1;
+      min-width: 250px;
+      padding: 1rem;
       font-size: 1rem;
-      box-sizing: border-box;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
     }
-    .login-error {
-      color: #d85a30;
-      font-size: 0.9rem;
-      margin-top: 0.8rem;
-      min-height: 1.2rem;
+
+    .btn-exportar {
+      background: linear-gradient(135deg, #28a745, #34ce57);
+      color: white;
+      box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
     }
-    .login-boton {
-      width: 100%;
-      margin-top: 0.5rem;
+
+    .btn-exportar:hover {
+      background: linear-gradient(135deg, #218838, #28a745);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+
+    .btn-importar {
+      background: linear-gradient(135deg, #ffc107, #ffcd39);
+      color: #212529;
+      box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+    }
+
+    .btn-importar:hover {
+      background: linear-gradient(135deg, #e0a800, #ffc107);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+    }
+
+    @media (max-width: 768px) {
+      .botones-respaldo {
+        flex-direction: column;
+      }
+      
+      .botones-respaldo button {
+        min-width: unset;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="login-contenedor">
-    <div class="login-titulo">Control Hielitos</div>
-    <div class="login-subtitulo">Inicia sesión para continuar</div>
-
-    <form id="formLogin">
-      <div class="login-campo">
-        <label for="correo">Usuario</label>
-        <input type="email" id="correo" required autocomplete="username" />
+  <header>
+    <h1>Control Hielitos</h1>
+    <div class="menu-desplegable">
+      <button id="btn-menu">☰</button>
+      <div id="menu-opciones" class="menu-oculto">
+        <a href="sabores.html">Sabores</a>
+        <a href="precios.html">Precios</a>
+        <a href="#" onclick="cerrarSesion(); return false;">Cerrar sesión</a>
       </div>
-      <div class="login-campo">
-        <label for="clave">Contraseña</label>
-        <input type="password" id="clave" required autocomplete="current-password" />
-      </div>
-      <button type="submit" class="boton-principal login-boton" id="btnEntrar">Entrar</button>
-      <div class="login-error" id="mensajeError"></div>
-    </form>
-  </div>
+    </div>
+  </header>
+  <main class="container">
+    <div class="botones-menu">
+      <button class="boton-principal" onclick="window.location.href='inventario.html'">Inventario</button>
+      <button class="boton-principal" onclick="window.location.href='ventas.html'">Ventas</button>
+    </div>
 
+    <!-- Nueva sección de respaldo completo -->
+    <div class="seccion-respaldo">
+      <h3>🗂️ Respaldo completo del sistema</h3>
+      <div class="botones-respaldo">
+        <button type="button" class="btn-exportar" onclick="exportarRespaldoCompleto()">
+          📦 Exportar todo
+        </button>
+        <button type="button" class="btn-importar" onclick="document.getElementById('fileInputCompleto').click()">
+          📥 Importar todo
+        </button>
+        <input type="file" id="fileInputCompleto" style="display: none;" accept="application/json" onchange="importarRespaldoCompleto(this)" />
+      </div>
+      
+      <!-- Botón para borrar todo el sistema - CON CONTENEDOR FLEXBOX -->
+      <div class="contenedor-borrar-todo">
+        <button type="button" class="btn-borrar-todo" onclick="confirmarBorradoCompleto()">
+          🗑️ BORRAR TODO EL SISTEMA
+        </button>
+      </div>
+
+      <p style="text-align: center; color: #666; margin-top: 1rem; font-size: 0.9rem;">
+        El respaldo incluye: sabores, precios, inventario e historial de ventas
+      </p>
+    </div>
+
+    <!-- Modal de confirmación de importación -->
+    <div id="modalConfirmacionImport" class="modal oculto">
+      <div class="modal-content">
+        <h4>⚠️ Confirmar importación completa</h4>
+        <div class="modal-body">
+          <p><strong>Esto sobrescribirá completamente todos los datos actuales:</strong></p>
+          <ul style="text-align: left; margin: 1rem 0;">
+            <li>• Todos los sabores registrados</li>
+            <li>• Todo el historial de precios</li>
+            <li>• Todo el inventario y su historial</li>
+            <li>• Todo el historial de ventas</li>
+          </ul>
+          <p><strong>¿Estás seguro de continuar?</strong></p>
+          <div class="modal-botones">
+            <button class="btn-cancelar" onclick="cancelarImportacion()">Cancelar</button>
+            <button class="btn-confirmar" onclick="confirmarImportacion()">✅ Importar todo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de información -->
+    <div id="modalInfo" class="modal oculto">
+      <div class="modal-content">
+        <h4 id="modalInfoTitulo">Información</h4>
+        <div class="modal-body">
+          <p id="modalInfoMensaje"></p>
+          <div class="modal-botones">
+            <button class="btn-confirmar" onclick="cerrarModalInfo()">Entendido</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de confirmación para borrado completo -->
+    <div id="modalBorradoCompleto" class="modal oculto">
+      <div class="modal-content">
+        <h4 style="color: #dc3545;">🚨 ELIMINAR TODO EL SISTEMA</h4>
+        <div class="modal-body">
+          <p><strong style="color: #dc3545;">⚠️ ADVERTENCIA CRÍTICA ⚠️</strong></p>
+          <p>Esta acción es <strong>IRREVERSIBLE</strong> y eliminará <strong>COMPLETAMENTE</strong>:</p>
+          <ul style="text-align: left; margin: 1rem 0; color: #333;">
+            <li>🍦 <strong>Todos los sabores</strong> y sus configuraciones</li>
+            <li>💰 <strong>Todo el historial de precios</strong></li>
+            <li>📦 <strong>Todo el inventario</strong> y movimientos</li>
+            <li>🛒 <strong>Todo el historial de ventas</strong></li>
+            <li>🗂️ <strong>Todos los datos del sistema</strong></li>
+          </ul>
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 1rem; margin: 1rem 0;">
+            <p style="margin: 0; font-weight: bold; color: #856404;">
+              💡 <strong>RECOMENDACIÓN:</strong> Haz un respaldo antes de continuar usando "📦 Exportar todo"
+            </p>
+          </div>
+          <p><strong>¿Estás COMPLETAMENTE seguro de eliminar todo?</strong></p>
+          <div class="modal-botones">
+            <button class="btn-cancelar" onclick="cancelarBorradoCompleto()">❌ Cancelar</button>
+            <button class="btn-borrar-definitivo" onclick="mostrarConfirmacionFinal()">⚠️ Continuar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de confirmación final -->
+    <div id="modalConfirmacionFinal" class="modal oculto">
+      <div class="modal-content">
+        <h4 style="color: #dc3545;">🔥 CONFIRMACIÓN FINAL</h4>
+        <div class="modal-body">
+          <p style="font-size: 1.1rem; font-weight: bold; color: #dc3545;">
+            ÚLTIMA ADVERTENCIA
+          </p>
+          <p>Al hacer clic en <strong>"ELIMINAR DEFINITIVAMENTE"</strong> se borrarán todos los datos de manera permanente.</p>
+          <p><strong>Esta acción NO se puede deshacer.</strong></p>
+          <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 1rem; margin: 1rem 0;">
+            <p style="margin: 0; font-weight: bold; color: #721c24;">
+              🚨 El sistema quedará completamente vacío y tendrás que configurar todo desde cero.
+            </p>
+          </div>
+          <div class="modal-botones">
+            <button class="btn-cancelar" onclick="cancelarBorradoCompleto()">❌ Cancelar</button>
+            <button class="btn-eliminar-definitivo" onclick="ejecutarBorradoCompleto()">🔥 ELIMINAR DEFINITIVAMENTE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="script.js"></script>
   <script>
-    const auth = firebase.auth();
-    const form = document.getElementById("formLogin");
-    const mensajeError = document.getElementById("mensajeError");
-    const btnEntrar = document.getElementById("btnEntrar");
+    let datosImportacionPendientes = null;
 
-    // Si ya hay sesión activa, no tiene sentido quedarse en login
-    auth.onAuthStateChanged((usuario) => {
-      if (usuario) {
-        const destino = sessionStorage.getItem("destinoTrasLogin") || "index.html";
-        window.location.href = destino;
+    async function exportarRespaldoCompleto() {
+      try {
+        // Recopilar todos los datos
+        const respaldoCompleto = {
+          metadata: {
+            fecha_respaldo: new Date().toISOString().split('T')[0],
+            hora_respaldo: new Date().toTimeString().split(' ')[0].substring(0, 5),
+            version: "1.0",
+            descripcion: "Respaldo completo del sistema Control Hielitos"
+          },
+          datos: {
+            sabores: await getSabores(),
+            precios: await getPrecios(),
+            inventario: await getInventario(),
+            ventas: await getVentas()
+          }
+        };
+
+        // Verificar si hay datos para respaldar
+        const totalSabores = respaldoCompleto.datos.sabores.length;
+        const totalPrecios = respaldoCompleto.datos.precios.length;
+        const totalInventario = Object.keys(respaldoCompleto.datos.inventario).length;
+        const totalVentas = respaldoCompleto.datos.ventas.length;
+
+        if (totalSabores === 0 && totalPrecios === 0 && totalInventario === 0 && totalVentas === 0) {
+          mostrarInfo("⚠️ Sin datos", "No hay información para respaldar en el sistema.");
+          return;
+        }
+
+        // Crear y descargar el archivo
+        const hoy = new Date();
+        const fecha = hoy.toLocaleDateString("es-MX").replace(/\//g, "-");
+        const hora = hoy.getHours().toString().padStart(2, "0");
+        const minuto = hoy.getMinutes().toString().padStart(2, "0");
+        
+        const blob = new Blob([JSON.stringify(respaldoCompleto, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Respaldo_Completo_Hielitos_-_${fecha}_-_${hora}-${minuto}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Registrar que se hizo el respaldo hoy, para que la alerta
+        // de "falta hacer respaldo" no vuelva a aparecer por unos días
+        await registrarRespaldoHecho();
+        sessionStorage.removeItem("alerta_respaldo_mostrada");
+
+        // Mostrar confirmación con resumen
+        mostrarInfo("✅ Respaldo creado", 
+          `Respaldo exportado exitosamente:\n\n` +
+          `• ${totalSabores} sabores\n` +
+          `• ${totalPrecios} precios\n` +
+          `• ${totalInventario} inventarios\n` +
+          `• ${totalVentas} ventas`
+        );
+
+      } catch (error) {
+        console.error("Error al exportar respaldo:", error);
+        mostrarInfo("❌ Error", "Error al crear el respaldo. Inténtalo de nuevo.");
+      }
+    }
+
+    function importarRespaldoCompleto(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const data = JSON.parse(e.target.result);
+
+          // Validar estructura del archivo
+          if (!data.datos || typeof data.datos !== 'object') {
+            throw new Error("Estructura de archivo inválida");
+          }
+
+          const { sabores, precios, inventario, ventas } = data.datos;
+
+          // Validar que los datos sean del tipo correcto
+          if (!Array.isArray(sabores) || !Array.isArray(precios) || 
+              typeof inventario !== 'object' || !Array.isArray(ventas)) {
+            throw new Error("Formato de datos inválido");
+          }
+
+          // Guardar temporalmente y mostrar confirmación
+          datosImportacionPendientes = data;
+          document.getElementById("modalConfirmacionImport").classList.remove("oculto");
+
+        } catch (error) {
+          console.error("Error al cargar archivo:", error);
+          mostrarInfo("❌ Archivo inválido", 
+            "El archivo seleccionado no es un respaldo válido del sistema.\n\n" +
+            "Asegúrate de cargar un archivo exportado desde 'Exportar todo'."
+          );
+        }
+      };
+
+      reader.readAsText(file);
+      // Limpiar input
+      input.value = '';
+    }
+
+    function confirmarImportacion() {
+      return ejecutarUnaVez(_confirmarImportacionInterno, {
+        botones: '.btn-confirmar[onclick="confirmarImportacion()"]'
+      });
+    }
+
+    async function _confirmarImportacionInterno() {
+      if (!datosImportacionPendientes) return;
+
+      try {
+        const { sabores, precios, inventario, ventas } = datosImportacionPendientes.datos;
+
+        // Sobrescribir todos los datos
+        await guardarSabores(sabores);
+        await guardarPrecios(precios);
+        await guardarInventario(inventario);
+        await guardarVentas(ventas);
+
+        // Mostrar confirmación con resumen
+        const totalSabores = sabores.length;
+        const totalPrecios = precios.length;
+        const totalInventario = Object.keys(inventario).length;
+        const totalVentas = ventas.length;
+
+        mostrarInfo("✅ Importación exitosa", 
+          `Datos importados correctamente:\n\n` +
+          `• ${totalSabores} sabores\n` +
+          `• ${totalPrecios} precios\n` +
+          `• ${totalInventario} inventarios\n` +
+          `• ${totalVentas} ventas\n\n` +
+          `Todos los datos anteriores han sido reemplazados.`
+        );
+
+        datosImportacionPendientes = null;
+        document.getElementById("modalConfirmacionImport").classList.add("oculto");
+
+      } catch (error) {
+        console.error("Error al importar datos:", error);
+        mostrarInfo("❌ Error de importación", "Error al importar los datos. Inténtalo de nuevo.");
+      }
+    }
+
+    function cancelarImportacion() {
+      datosImportacionPendientes = null;
+      document.getElementById("modalConfirmacionImport").classList.add("oculto");
+    }
+
+    function mostrarInfo(titulo, mensaje) {
+      document.getElementById("modalInfoTitulo").textContent = titulo;
+      document.getElementById("modalInfoMensaje").innerHTML = mensaje.replace(/\n/g, '<br>');
+      document.getElementById("modalInfo").classList.remove("oculto");
+    }
+
+    function cerrarModalInfo() {
+      document.getElementById("modalInfo").classList.add("oculto");
+    }
+
+    // Cerrar modales al hacer clic fuera
+    document.addEventListener("click", function(e) {
+      if (e.target.classList.contains("modal")) {
+        cancelarImportacion();
+        cerrarModalInfo();
+        cancelarBorradoCompleto();
       }
     });
 
-    form.addEventListener("submit", async function (e) {
-      e.preventDefault();
-      mensajeError.textContent = "";
-      btnEntrar.disabled = true;
-      btnEntrar.textContent = "Entrando...";
+    // FUNCIONES PARA BORRADO COMPLETO DEL SISTEMA
+    function confirmarBorradoCompleto() {
+      document.getElementById("modalBorradoCompleto").classList.remove("oculto");
+    }
 
-      const correo = document.getElementById("correo").value.trim();
-      const clave = document.getElementById("clave").value;
+    function cancelarBorradoCompleto() {
+      document.getElementById("modalBorradoCompleto").classList.add("oculto");
+      document.getElementById("modalConfirmacionFinal").classList.add("oculto");
+    }
 
+    function mostrarConfirmacionFinal() {
+      document.getElementById("modalBorradoCompleto").classList.add("oculto");
+      document.getElementById("modalConfirmacionFinal").classList.remove("oculto");
+    }
+
+    async function ejecutarBorradoCompleto() {
       try {
-        await auth.signInWithEmailAndPassword(correo, clave);
-        // La redirección la maneja onAuthStateChanged arriba
+        // Borrar todos los datos
+        await borrarSabores();
+        await borrarPrecios();
+        await borrarInventario();
+        await borrarVentas();
+
+        // Cerrar modales
+        cancelarBorradoCompleto();
+
+        // Mostrar confirmación de eliminación exitosa
+        mostrarInfo("🗑️ Sistema eliminado", 
+          "Todos los datos han sido eliminados correctamente.\n\n" +
+          "El sistema está ahora completamente vacío.\n" +
+          "Puedes comenzar a configurar todo desde cero."
+        );
+
       } catch (error) {
-        btnEntrar.disabled = false;
-        btnEntrar.textContent = "Entrar";
-        if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password" || error.code === "auth/user-not-found") {
-          mensajeError.textContent = "Usuario o contraseña incorrectos.";
-        } else if (error.code === "auth/invalid-email") {
-          mensajeError.textContent = "El usuario no tiene un formato válido.";
-        } else {
-          mensajeError.textContent = "No se pudo iniciar sesión. Revisa tu conexión.";
-        }
-        console.error("Error de login:", error);
+        console.error("Error al eliminar datos:", error);
+        mostrarInfo("❌ Error", "Error al eliminar los datos. Inténtalo de nuevo.");
       }
+    }
+
+    // Alertas locales: pedir permiso de notificaciones y revisar
+    // condiciones (stock bajo, respaldo pendiente) al abrir la app
+    window.addEventListener("DOMContentLoaded", async function () {
+      await pedirPermisoNotificaciones();
+      await revisarAlertas();
     });
   </script>
   <script>
